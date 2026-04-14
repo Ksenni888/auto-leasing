@@ -1,60 +1,30 @@
-package ru.bell.model;
+package ru.bell.Model;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
+@Data
+@Entity
+@NoArgsConstructor
+@AllArgsConstructor
+@Table(name = "cars")
+@Builder
 public class Car {
-    private String VIN;
+    @Id
+    private String vin;
     private String brand;
     private String model;
+    @Column(name="yearofrelease")
     private Integer yearOfRelease;
     private BigDecimal cost;
+    @Column(name="isavailable")
     private boolean isAvailable;
-
-    public String getVIN() {
-        return VIN;
-    }
-
-    public String getBrand() {
-        return brand;
-    }
-
-    public String getModel() {
-        return model;
-    }
-
-    public Integer getYearOfRelease() {
-        return yearOfRelease;
-    }
-
-    public BigDecimal getCost() {
-        return cost;
-    }
-
-    public boolean isAvailable() {
-        return isAvailable;
-    }
-
-    public void setVIN(String VIN) {
-        this.VIN = VIN;
-    }
-
-    public void setBrand(String brand) {
-        this.brand = brand;
-    }
-
-    public void setModel(String model) {
-        this.model = model;
-    }
-
-    public void setYearOfRelease(Integer yearOfRelease) {
-        this.yearOfRelease = yearOfRelease;
-    }
-
-    public void setCost(BigDecimal cost) {
-        this.cost = cost;
-    }
-
-    public void setAvailable(boolean available) {
-        isAvailable = available;
-    }
 }

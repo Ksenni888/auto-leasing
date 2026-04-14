@@ -1,0 +1,171 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-cars-table
+      author: your-name
+      preConditions:
+                - onFail: MARK_RAN
+                - not:
+                    - tableExists:
+                        tableName: cars
+      changes:
+        - createTable:
+            tableName: cars
+            columns:
+              - column:
+                  name: vin
+                  type: varchar(255)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: brand
+                  type: varchar(255)
+              - column:
+                  name: model
+                  type: varchar(255)
+              - column:
+                  name: yearofrelease
+                  type: integer
+                  constraints:
+                    nullable: false
+              - column:
+                  name: cost
+                  type: numeric(15,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: isavailable
+                  type: boolean
+                  defaultValue: true
+
+  - changeSet:
+      id: 002-create-clients-table
+      author: your-name
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: clients
+      changes:
+        - createTable:
+            tableName: clients
+            columns:
+              - column:
+                  name: id
+                  type: int4
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: passport
+                  type: varchar(12)
+                  constraints:
+                    unique: true
+                    nullable: false
+              - column:
+                  name: telephone
+                  type: varchar(20)
+                  constraints:
+                    unique: true
+                    nullable: false
+
+  - changeSet:
+      id: 003-create-contracts-table
+      author: your-name
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: contracts
+      changes:
+        - createTable:
+            tableName: contracts
+            columns:
+              - column:
+                  name: id
+                  type: int4
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: carvin
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_contract_car
+                    references: cars(vin)
+              - column:
+                  name: clientid
+                  type: bigint
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_contract_client
+                    references: clients(id)
+              - column:
+                  name: period
+                  type: integer
+                  constraints:
+                    nullable: false
+              - column:
+                  name: initialpayment
+                  type: numeric(15,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: percent
+                  type: numeric(5,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: amountoffinancing
+                  type: numeric(15,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: isclosed
+                  type: boolean
+                  defaultValue: false
+
+  - changeSet:
+      id: 004-create-payments-table
+      author: your-name
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: payments
+      changes:
+        - createTable:
+            tableName: payments
+            columns:
+              - column:
+                  name: contractid
+                  type: integer
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_payment_contract
+                    references: contracts(id)
+              - column:
+                  name: paymentid
+                  type: integer
+                  constraints:
+                    nullable: false
+              - column:
+                  name: amount
+                  type: numeric(15,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ispaid
+                  type: boolean
+                  defaultValue: false
+            constraints:
+              primaryKey:
+                columnNames: contractid, paymentid

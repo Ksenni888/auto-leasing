@@ -1,40 +1,31 @@
-package ru.bell.model;
+package ru.bell.Model;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "clients")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Client {
-    private int ID;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name="id",  columnDefinition = "int4")
+    private Long id;
+    @Column(name = "name", nullable = false)
     private String fullName;
+    @Column(name = "passport", length = 10, unique = true, nullable = false)
     private String passportNumber;
+    @Column(name = "telephone", length = 20, unique = true, nullable = false)
     private String telephone;
-
-    public void setID(int ID) {
-        this.ID = ID;
-    }
-
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
-    }
-
-    public void setPassportNumber(String passportNumber) {
-        this.passportNumber = passportNumber;
-    }
-
-    public void setTelephone(String telephone) {
-        this.telephone = telephone;
-    }
-
-    public int getID() {
-        return ID;
-    }
-
-    public String getFullName() {
-        return fullName;
-    }
-
-    public String getPassportNumber() {
-        return passportNumber;
-    }
-
-    public String getTelephone() {
-        return telephone;
-    }
 }

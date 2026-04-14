@@ -1,33 +1,36 @@
-package ru.bell.model;
+package ru.bell.Model;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.IdClass;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
+@Data
+@Entity
+@Table(name = "payments")
+@IdClass(PaymentId.class)
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Payment {
-    private int ID;
+    @Id
+    @Column(name = "contractId", columnDefinition = "int4")
+    private Long contractId;
+
+    @Id
+    @Column(name = "paymentId", columnDefinition = "int4")
+    private Long paymentId;
+
+    @Column(name = "amount", nullable = false)
     private BigDecimal amount;
-    private boolean isPaid;
 
-    public int getID() {
-        return ID;
-    }
-
-    public BigDecimal getAmount() {
-        return amount;
-    }
-
-    public boolean isPaid() {
-        return isPaid;
-    }
-
-    public void setID(int ID) {
-        this.ID = ID;
-    }
-
-    public void setAmount(BigDecimal amount) {
-        this.amount = amount;
-    }
-
-    public void setPaid(boolean paid) {
-        isPaid = paid;
-    }
+    @Column(name = "is_paid")
+    private boolean paid;
 }
