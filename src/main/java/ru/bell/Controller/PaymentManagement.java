@@ -1,5 +1,8 @@
 package ru.bell.Controller;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import ru.bell.model.LeasingContract;
 import ru.bell.model.Payment;
 
 import java.math.BigDecimal;
@@ -7,45 +10,50 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Scanner;
 
 public class PaymentManagement {
+    private static final Logger log = LoggerFactory.getLogger(PaymentManagement.class);
     private HashMap<Integer,List<Payment>> paymentsC = new HashMap<>();
     Scanner scanner = new Scanner(System.in);
     private LeasingContractManagement leasingContractManagement;
+
+    public void setScanner(Scanner scanner) {
+        this.scanner = scanner;
+    }
+
+    public HashMap<Integer, List<Payment>> getPaymentsC() {
+        return paymentsC;
+    }
 
     public void setLeasingContractManagement(LeasingContractManagement leasingContractManagement) {
         this.leasingContractManagement = leasingContractManagement;
     }
 
-
     public List<Payment> getPaymentsByContractID() {
         int id = leasingContractManagement.checkNumber();
-        List<Integer> result = leasingContractManagement.historyPaymentsByLeasingContractID(id);
-        if (!result.isEmpty()) {
-            return result.stream().map(x -> findPaymentById(x, id)).toList();
-        } else  {System.out.println("Такого договора нет");
-            return new ArrayList<>(); }
+        return paymentsC.get(id);
     }
 
-    public void updatePaymentInFile(int contructId, List<Integer> paymentsNotPaid) {
+    public void updatePaymentInFile(int contractId, int paymentId) {
         Thread adding = new Thread(
                 new Runnable() {
                     @Override
                     public void run() {
                         try (Connection connection = DriverManager.getConnection(DBConfig.Connection.URL, DBConfig.Connection.USERNAME, DBConfig.Connection.PASSWORD)) {
-                            String sql = "UPDATE payments SET notPaid = ? WHERE contractId = ?";
+                            String sql = "UPDATE payments SET isPaid = ? WHERE contractId = ? AND paymentId = ?";
                             PreparedStatement ps = connection.prepareStatement(sql);
-                            ps.setString(1, paymentsNotPaid.toString());
-                            ps.setInt(2, contructId);
-                            int i = ps.executeUpdate();
-                        }catch (Exception e) {e.printStackTrace();}
+                            ps.setBoolean(1, true);
+                            ps.setInt(2, contractId);
+                            ps.setInt(3, paymentId);
+                            ps.executeUpdate();
+                        }catch (Exception e) {
+                            System.out.println("Ошибка при обновлении данных в базе");
+                            log.error("Ошибка при обновлении данных в базе"); }
                     }});
         adding.setDaemon(true);
         adding.start();
@@ -53,6 +61,7 @@ public class PaymentManagement {
 
     public BigDecimal checkBigDecimalNumber() {
         while (!scanner.hasNextBigDecimal()) {
+            log.warn("Это не число");
             System.out.println("Это не число");
             scanner.next();
         }
@@ -65,37 +74,32 @@ public class PaymentManagement {
             public void run() {
                 List<Integer> paymentsNotPaid = new ArrayList<>();
                 System.out.println("Введите номер(ID) договора ");
-                while (!scanner.hasNextInt()) {
-                    System.out.println("Введите номер(ID) договора ");
-                    scanner.next();
-                }
-                int contractID = scanner.nextInt();
+                int contractID = leasingContractManagement.checkNumber();
                 int n = 0;
-                if (leasingContractManagement.getContractByID(contractID) != null) {
-                    List<Payment> paymentsID = paymentsC.get(contractID);
-                    for (Payment i : paymentsID) {
+                if (paymentsC.containsKey(contractID)) {
+                    List<Payment> paymentsByContractId = paymentsC.get(contractID);
+                    for (Payment i : paymentsByContractId) {
                         if (i.isPaid()) {
                             n++;
                         } else {paymentsNotPaid.add(i.getID());}
                     }
                     if (n != paymentsC.get(contractID).size()) {
-                        for (Payment p : paymentsC.get(contractID)) {
+                        for (Payment p : paymentsByContractId) {
                             if (!p.isPaid()) {
                                 System.out.println("Сумма платежа должна быть " + p.getAmount());
                                 System.out.println("Введите сумму платежа");
                                 scanner.useLocale(Locale.ENGLISH);
                                 BigDecimal amount = checkBigDecimalNumber();
                                 while (!amount.equals(p.getAmount())) {
+                                    log.warn("Неверное число, введите новое");
                                     System.out.println("Неверное число, введите новое");
                                     amount = checkBigDecimalNumber();
                                 }
                                 p.setPaid(true);
                                 n+=1;
-                                updatePaymentInFile(contractID,paymentsNotPaid);
-                                if (paymentsID.size() - n == 0) {
+                                updatePaymentInFile(contractID, p.getID());
+                                if (paymentsByContractId.size() - n == 0) {
                                     leasingContractManagement.changeStatus(contractID);
-                                    paymentsNotPaid.remove(0);
-                                    updatePaymentInFile(contractID,paymentsNotPaid);
                                 }
                                 System.out.println("Платеж принят!");
                                 break;
@@ -108,7 +112,6 @@ public class PaymentManagement {
                             System.out.println("Договор оплачен");
                         }
                     }
-
                 } else {
                     System.out.println("Такого договора нет");
                 }
@@ -124,78 +127,76 @@ public class PaymentManagement {
         }
     }
 
-    public void printPayment(int id, int contractId) {
-        Payment payment = findPaymentById(id, contractId);
+    public void printPayment(Payment payment) {
         System.out.println("номер платежа: " + payment.getID());
         System.out.println("сумма платежа: " + payment.getAmount());
         System.out.println(payment.isPaid() ? "статус платежа: оплачен" : "статус платежа: ждет оплаты");
     }
 
-    public Payment findPaymentById(int id, int contractId) {
-        if (!paymentsC.isEmpty()) {
-
-            for (Payment p : paymentsC.get(contractId)) {
-                if (p.getID() == id) {
-                    return p;
-                }
-            }
-        }
-        return new Payment();
-    }
-
     public void paymentsFromDB() {
+        List <LeasingContract> lc = leasingContractManagement.getAllLeasingContract();
         try (Connection connection = DriverManager.getConnection(DBConfig.Connection.URL, DBConfig.Connection.USERNAME, DBConfig.Connection.PASSWORD);
-             Statement statement = connection.createStatement();
-        ) {
-
-            String selectSql = "SELECT * FROM payments";
-            ResultSet resultSet = statement.executeQuery(selectSql);
-            while (resultSet.next()) {
-                String pay = resultSet.getString("paymentsids");
-                String [] paymentsIds = pay.substring(1,pay.length()-1).split(", ");
-                String i = resultSet.getString("notPaid");
-                String [] s = i.substring(1,i.length()-1).split(", ");
-                List<String> paymentsIsPaid = Arrays.asList(s);
+             PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM payments WHERE contractId = ?")) {
+            for (LeasingContract i: lc) {
                 List<Payment> paymentsList = new ArrayList<>();
-                for (String p: paymentsIds)
-                {
+                preparedStatement.setInt(1, i.getID());
+                ResultSet resultSet = preparedStatement.executeQuery();
+                while (resultSet.next()) {
                     Payment payment = new Payment();
-                    payment.setID(Integer.parseInt(p));
+                    payment.setID(resultSet.getInt("paymentId"));
                     payment.setAmount(resultSet.getBigDecimal("amount"));
-                    payment.setPaid(!paymentsIsPaid.contains(p));
+                    payment.setPaid(resultSet.getBoolean("isPaid"));
                     paymentsList.add(payment);
                 }
-                paymentsC.put(resultSet.getInt("contractId"),paymentsList);
+                paymentsC.put(i.getID(),paymentsList);
             }
-        } catch (Exception e) { e.printStackTrace(); System.out.println("Ошибка при загрузке данных из базы");
+        }
+        catch (Exception e) {
+            System.out.println("Ошибка при загрузке данных из базы");
+            log.error("Ошибка при загрузке данных из базы");
         }
     }
 
-    public List<Integer> createPaymentSchedule(Integer period, BigDecimal result, Integer contractId) {
-        List<Payment> paymentsByContract = new ArrayList<>();
-        List<Integer> paymentsIDs = new ArrayList<>();
-        try (Connection connection = DriverManager.getConnection(DBConfig.Connection.URL, DBConfig.Connection.USERNAME, DBConfig.Connection.PASSWORD)) {
-            int id = 0;
-            for (int i = 0; i < period; i++) {
-                Payment payment = new Payment();
-                id += 1;
-                payment.setID(id);
-                payment.setAmount(result);
-                payment.setPaid(false);
-                paymentsByContract.add(payment);
-                paymentsIDs.add(id);
-            }
-            paymentsC.put(contractId,paymentsByContract);
-            String sql = "INSERT INTO payments (paymentsIds, contractId, amount, notPaid) " +
+    public void paymentToDB(int contractId, List<Payment> payments){
+        try (Connection connection = DriverManager.getConnection(DBConfig.Connection.URL, DBConfig.Connection.USERNAME,
+                DBConfig.Connection.PASSWORD)) {
+            String sql = "INSERT INTO payments (contractId, paymentId, amount, isPaid) " +
                     "VALUES (?,?,?,?)";
             PreparedStatement ps = connection.prepareStatement(sql);
-            ps.setString(1, paymentsIDs.toString());
-            ps.setInt(2, contractId);
-            ps.setBigDecimal(3, result);
-            ps.setString(4, paymentsIDs.toString());
-            ps.execute();
+            for (Payment p: payments)
+            {  ps.setInt(1, contractId);
+                ps.setInt(2, p.getID());
+                ps.setBigDecimal(3, p.getAmount());
+                ps.setBoolean(4, false);
+                ps.execute();
+            }
+        } catch (Exception e){
+            System.out.println("Ошибка записи данных в базу");
+            log.error("Ошибка записи данных в базу", e); }
+    }
 
-        }catch (Exception e){ e.printStackTrace();}
+    public List<Integer> createPaymentSchedule(Integer period, BigDecimal result, int contractId) {
+        List<Payment> paymentsByContract = new ArrayList<>();
+        List<Integer> paymentsIDs = new ArrayList<>();
+        int id = 0;
+        for (int i = 0; i < period; i++) {
+            Payment payment = new Payment();
+            id += 1;
+            payment.setID(id);
+            payment.setAmount(result);
+            payment.setPaid(false);
+            paymentsByContract.add(payment);
+            paymentsIDs.add(id);
+        }
+        paymentsC.put(contractId,paymentsByContract);
+        Thread adding = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                paymentToDB(contractId, paymentsByContract);
+            }
+        });
+        adding.setDaemon(true);
+        adding.start();
         return paymentsIDs;
     }
 }

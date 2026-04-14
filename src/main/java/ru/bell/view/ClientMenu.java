@@ -30,7 +30,7 @@ public class ClientMenu {
             if (scanner.hasNextInt()) {
                 switch (scanner.nextInt()) {
                     case 1:
-                        clientManagement.addClient();
+                        clientManagement.createClient();
                         printMenu();
                         break;
                     case 2:

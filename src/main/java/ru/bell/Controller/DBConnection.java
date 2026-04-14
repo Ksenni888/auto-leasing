@@ -1,5 +1,8 @@
 package ru.bell.Controller;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -7,6 +10,7 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 
 public class DBConnection extends Thread {
+    private static final Logger log = LoggerFactory.getLogger(DBConnection.class);
 
     public void run() {
         try (Connection connection = DriverManager.getConnection(DBConfig.Connection.URLHOST, DBConfig.Connection.USERNAME, DBConfig.Connection.PASSWORD);
@@ -21,8 +25,8 @@ public class DBConnection extends Thread {
                 }
             }
             createTableIfNotExists();
-        } catch (Exception e) { e.printStackTrace();
-            System.out.println("Соединение с сервером не установлено.");
+        } catch (Exception e) {
+            log.error("Соединение с сервером не установлено.");
         }
     }
 
@@ -46,14 +50,14 @@ public class DBConnection extends Thread {
                         isAvailable BOOLEAN);""");
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS payments (
-                        paymentsids VARCHAR(500),
                         contractId BIGINT NOT NULL,
+                        paymentId BIGINT NOT NULL,
                         amount NUMERIC NOT NULL,
-                        notPaid VARCHAR(500),
-                        PRIMARY KEY (paymentsids, contractId));""");
+                        isPaid BOOLEAN,
+                        PRIMARY KEY (contractId, paymentId));""");
             System.out.println("База данных с таблицами загружена!");
         } catch (Exception e) {
-            System.out.println("Базы данных не существует");
+            log.error("Базы данных не существует");
         }
     }
 }

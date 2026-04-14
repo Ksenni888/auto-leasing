@@ -22,19 +22,18 @@ public class MainMenu {
 
     public void checkLoadFiles(LoadFileCars loadFileCars, LoadFileClients loadFileClients,
                                LoadFileContracts loadFileContracts, LoadFilePayments loadFilePayments){
+        loadFileContracts.start();
         DBConnection dbConnection = new DBConnection();
         dbConnection.start();
-
         loadFileCars.start();
         loadFileClients.start();
-        loadFileContracts.start();
         loadFilePayments.start();
 
         try {
+            loadFileContracts.join();
             dbConnection.join();
             loadFileCars.join();
             loadFileClients.join();
-            loadFileContracts.join();
             loadFilePayments.join();
         } catch (InterruptedException e) {
             throw new RuntimeException(e);

@@ -1,5 +1,7 @@
 package ru.bell.Controller;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.bell.model.Car;
 import ru.bell.model.Client;
 import ru.bell.model.LeasingContract;
@@ -20,10 +22,12 @@ import java.util.Scanner;
 import java.util.Set;
 
 public class LeasingContractManagement {
+    private static final Logger log = LoggerFactory.getLogger(LeasingContractManagement.class);
     String PATH = "leasingContracts.txt";
     ClientManagement clientManagement = new ClientManagement();
     CarManagement carManagement = new CarManagement();
     PaymentManagement paymentManagement = new PaymentManagement();
+
     Scanner scanner = new Scanner(System.in);
     List<LeasingContract> contracts = new ArrayList<>();
     BigDecimal result;
@@ -45,9 +49,10 @@ public class LeasingContractManagement {
         File file = new File(PATH);
         if (file.length() == 0) {
             System.out.println("Файл "+ PATH+ " пустой");
+            log.error("Файл "+ PATH+ " пустой");
             return false;
         }
-        leasingContractsFromFile();
+        contractsFromFile();
         return true;
     }
 
@@ -62,7 +67,7 @@ public class LeasingContractManagement {
         return contracts;
     }
 
-    public void leasingContractsFromFile() {
+    public void contractsFromFile() {
         try {
             File file = new File(PATH);
             FileReader fileReader = new FileReader(file, StandardCharsets.UTF_8);
@@ -92,7 +97,7 @@ public class LeasingContractManagement {
 
         } catch (Exception e) {
             System.out.println("Невозможно прочитать файл " + PATH);
-            e.printStackTrace();
+            log.error("Невозможно прочитать файл " + PATH, e);
         }
     }
 
@@ -104,7 +109,8 @@ public class LeasingContractManagement {
 
     public int checkNumber(){
         while (!scanner.hasNextInt())
-        {   System.out.println("Введите число");
+        {   log.warn("Введите число");
+            System.out.println("Введите число");
             scanner.next();
         }
         return scanner.nextInt();
@@ -124,20 +130,19 @@ public class LeasingContractManagement {
             carManagement.printCarWithoutAvailable(car);
             System.out.println("==== ИНФОРМАЦИЯ О ПЛАТЕЖАХ ======");
             System.out.println("сумма финансирования " + leasingContract.getAmountOfFinancing());
+            System.out.println("процентная ставка " + leasingContract.getPercent());
             System.out.println("Первоначальный взнос " + leasingContract.getInitialPayment());
             System.out.println("Cрок " + leasingContract.getPeriod() + " мес.");
             System.out.println("Стоимость автомобиля " + car.getCost() + "₽");
             System.out.println("==== ПЛАТЕЖИ ======");
-            List<Integer> list = leasingContract.getPayments();
+            List<Payment> paymentsByContractId = paymentManagement.getPaymentsC().get(number);
             List<Integer> closedPayments = new ArrayList<>();
-            PaymentManagement paymentManagement = new PaymentManagement();
-            paymentManagement.paymentsFromDB();
-            for (Integer l : list) {
-                Payment payment = paymentManagement.findPaymentById(l, leasingContract.getID());
-                if (payment != null) {
-                    paymentManagement.printPayment(payment.getID(), leasingContract.getID());
-                    if (payment.isPaid()) {
-                        closedPayments.add(l);
+            if (paymentsByContractId != null ){
+                for (Payment p: paymentsByContractId)
+                {
+                    paymentManagement.printPayment(p);
+                    if (p.isPaid()) {
+                        closedPayments.add(p.getID());
                     }
                 }
             }
@@ -149,7 +154,8 @@ public class LeasingContractManagement {
     public Set<Integer> historyLeasingContractsByClient(){
         System.out.println("Введите id клиента");
         while (!scanner.hasNextInt())
-        { System.out.println("Введите id клиента");
+        {   log.warn("Введите id клиента");
+            System.out.println("Введите id клиента");
             scanner.next();}
         Client client = clientManagement.findClientByID(scanner.nextInt());
         Set<Integer> numbersContractsOfClient = new HashSet<>();
@@ -162,15 +168,6 @@ public class LeasingContractManagement {
             }
         }
         return numbersContractsOfClient;
-    }
-
-    public List<Integer> historyPaymentsByLeasingContractID (Integer contractID){
-             for (LeasingContract lc : contracts){
-            if (lc.getID() == contractID) {
-                return lc.getPayments();
-            }
-        }
-        return new ArrayList<>();
     }
 
     public synchronized void changeStatus(int id){
@@ -209,23 +206,44 @@ public class LeasingContractManagement {
             file1.renameTo(new File("leasingContracts.txt"));
             List<Car> c = carManagement.getCars();
             for (int i = 0; i < c.size(); i++){
-
                 if (c.get(i).getVIN().equals(leasingContract.getCarVIN())){
                     carManagement.getCars().get(i).setAvailable(true);
                     break;
                 }
             }
-            carManagement.updateCarAvailable(carManagement.findCarByVin(leasingContract.getCarVIN()),
-                    true);
-        } catch (Exception e) {System.out.println("Ошибка записи/чтения файла " + PATH); e.printStackTrace(); }
+            carManagement.updateCarAvailable(carManagement.findCarByVin(leasingContract.getCarVIN()),true);
+        } catch (Exception e) {
+            System.out.println("Ошибка записи/чтения файла ");
+            log.error("Ошибка записи/чтения файла " + PATH, e); }
+    }
+
+    public void contractToFile(LeasingContract leasingContract, List<Integer> paymentSchedule){
+        try {
+            File file = new File(PATH);
+            FileWriter fileWriter = new FileWriter(file, StandardCharsets.UTF_8, true);
+            BufferedWriter bufferedWriter = new BufferedWriter(fileWriter);
+            bufferedWriter.append(String.valueOf(leasingContract.getID())).append(",");
+            bufferedWriter.append(leasingContract.getCarVIN()).append(",");
+            bufferedWriter.append(String.valueOf(leasingContract.getClientID())).append(",");
+            bufferedWriter.append(String.valueOf(leasingContract.getPeriod())).append(",");
+            bufferedWriter.append(String.valueOf(leasingContract.getInitialPayment())).append(",");
+            bufferedWriter.append(String.valueOf(leasingContract.getPercent())).append(",");
+            bufferedWriter.append("false").append(",");
+            bufferedWriter.append(String.valueOf(amountOfCredit)).append(",");
+            bufferedWriter.append(paymentSchedule.toString().substring(1, paymentSchedule.toString().length() - 1));
+            bufferedWriter.newLine();
+            bufferedWriter.flush();
+            bufferedWriter.close();
+        } catch (Exception e) {
+            System.out.println("Ошибка записи в файл " + PATH);
+            log.error("Ошибка записи в файл " + PATH, e);
+        }
     }
 
     public void create() {
         System.out.println("Введите id клиента");
         while (!scanner.hasNextInt())
-        { System.out.println("Введите id клиента");
-            scanner.next();}
-
+        { System.out.println("Введите id клиента"); scanner.next();}
         int id = scanner.nextInt();
         Client client = clientManagement.findClientByID(id);
         if (client.getID() != 0) {
@@ -251,57 +269,40 @@ public class LeasingContractManagement {
                                 result = amountOfCredit.multiply((M.multiply(x)).divide(y, 4, RoundingMode.HALF_UP));
                             } catch (ArithmeticException e) {
                                 System.out.println("/by zero");
+                                log.error("/by zero", e);
                                 return;
                             }
-
-                            LeasingContract leasingContract = new LeasingContract();
                             int ContractID = increment();
                             String carVIN = car.getVIN();
                             int clientID = client.getID();
 
+                            LeasingContract leasingContract = new LeasingContract();
+                            leasingContract.setID(ContractID);
+                            leasingContract.setCarVIN(carVIN);
+                            leasingContract.setClient(clientID);
+                            leasingContract.setPeriod(period);
+                            leasingContract.setInitialPayment(initialPayment);
+                            leasingContract.setPercent(percent);
+                            leasingContract.setClosed(false);
+                            leasingContract.setAmountOfFinancing(amountOfCredit);
+                            List<Integer> paymentSchedule = paymentManagement.createPaymentSchedule(period, result, ContractID);
+                            leasingContract.setPayments(paymentSchedule);
+                            contracts.add(leasingContract);
+                            List<Car> c = carManagement.getCars().stream().filter(x -> x.getVIN().equals(car.getVIN())).toList();
+                            c.get(0).setAvailable(false);
+                            carManagement.updateCarAvailable(car, false);
                             Thread adding = new Thread(new Runnable() {
                                 @Override
                                 public void run() {
-                                    try {
-                                        File file = new File(PATH);
-                                        FileWriter fileWriter = new FileWriter(file, StandardCharsets.UTF_8, true);
-                                        BufferedWriter bufferedWriter = new BufferedWriter(fileWriter);
-                                        leasingContract.setID(ContractID);
-                                        bufferedWriter.append(String.valueOf(ContractID)).append(",");
-                                        leasingContract.setCarVIN(carVIN);
-                                        bufferedWriter.append(carVIN).append(",");
-                                        leasingContract.setClient(clientID);
-                                        bufferedWriter.append(String.valueOf(clientID)).append(",");
-                                        leasingContract.setPeriod(period);
-                                        bufferedWriter.append(String.valueOf(period)).append(",");
-                                        leasingContract.setInitialPayment(initialPayment);
-                                        bufferedWriter.append(String.valueOf(initialPayment)).append(",");
-                                        leasingContract.setPercent(percent);
-                                        bufferedWriter.append(String.valueOf(percent)).append(",");
-                                        leasingContract.setClosed(false);
-                                        bufferedWriter.append("false").append(",");
-                                        leasingContract.setAmountOfFinancing(amountOfCredit);
-                                        bufferedWriter.append(String.valueOf(amountOfCredit)).append(",");
-                                        List<Integer> paymentSchedule = paymentManagement.createPaymentSchedule(period, result, ContractID);
-                                        leasingContract.setPayments(paymentSchedule);
-                                        bufferedWriter.append(paymentSchedule.toString().substring(1, paymentSchedule.toString().length() - 1));
-                                        bufferedWriter.newLine();
-                                        contracts.add(leasingContract);
-                                        List<Car> c = carManagement.getCars().stream().filter(x -> x.getVIN().equals(car.getVIN())).toList();
-                                        c.get(0).setAvailable(false);
-                                        carManagement.updateCarAvailable(car, false);
-                                        bufferedWriter.flush();
-                                        bufferedWriter.close();
-                                        System.out.println("Договор создан!");
-                                    } catch (Exception e) {
-                                        System.out.println("Ошибка записи в файл " + PATH);
-                                    }
+                                    contractToFile(leasingContract, paymentSchedule);
                                 }
                             });
                             adding.setDaemon(true);
                             adding.start();
+                            System.out.println("Договор создан!");
                         } else {
                             System.out.println("Первоначальный взнос не может быть больше стоимости машины.");
+                            log.warn("Первоначальный взнос не может быть больше стоимости машины.");
                         }
                     } else {
                         System.out.println("Машина в лизинге");

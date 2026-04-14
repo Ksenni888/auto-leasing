@@ -1,5 +1,7 @@
 package ru.bell.Controller;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.bell.model.Car;
 
 import java.math.BigDecimal;
@@ -18,18 +20,22 @@ import java.util.Set;
 import java.util.TreeSet;
 
 public class CarManagement {
-    private Set<Car> cars = new TreeSet<>(new Comparator<Car>() {
-        @Override
-        public int compare(Car s1, Car s2) {
-            return s1.getVIN().compareTo(s2.getVIN());
-        }});
+    private static final Logger log = LoggerFactory.getLogger(CarManagement.class);
+    private Set<Car> cars = new TreeSet<>(Comparator.comparing(Car::getVIN));
     private List<String> vins = new ArrayList<>();
     Scanner scanner = new Scanner(System.in);
 
+    public void setScanner(Scanner scanner) {
+        this.scanner = scanner;
+    }
+
+    public void setCars(Set<Car> cars) {
+        this.cars = cars;
+    }
+
     public void carsFromDB() {
         try (Connection connection = DriverManager.getConnection(DBConfig.Connection.URL, DBConfig.Connection.USERNAME, DBConfig.Connection.PASSWORD);
-             Statement statement = connection.createStatement();
-        ) {
+             Statement statement = connection.createStatement()) {
             String selectSql = "SELECT * FROM cars";
             ResultSet resultSet = statement.executeQuery(selectSql);
             while (resultSet.next()) {
@@ -43,7 +49,28 @@ public class CarManagement {
                 cars.add(car);
                 vins.add(resultSet.getString("vin"));
             }
-        } catch (Exception e) { e.printStackTrace(); System.out.println("Ошибка при загрузке данных из базы");
+        } catch (Exception e) {
+            log.error("Ошибка при загрузке данных из базы", e);
+            System.out.println("Ошибка при загрузке данных из базы");
+        }
+    }
+
+    public void carToDB(Car car){
+        try (Connection connection = DriverManager.getConnection(DBConfig.Connection.URL, DBConfig.Connection.USERNAME, DBConfig.Connection.PASSWORD))
+        { String sql = "INSERT INTO cars (vin, brand, model, yearOfRelease, cost, isavailable) " +
+                "VALUES (?,?,?,?,?,?)";
+            PreparedStatement ps = connection.prepareStatement(sql);
+            ps.setString(1, car.getVIN());
+            ps.setString(2, car.getBrand());
+            ps.setString(3, car.getModel());
+            ps.setInt(4, car.getYearOfRelease());
+            ps.setBigDecimal(5, car.getCost());
+            ps.setBoolean(6, true);
+            ps.execute();
+        } catch (SQLException e) {
+            log.error("Ошибка при загрузке данных в базу", e);
+            System.out.println("Ошибка при загрузке данных в базу");
+            throw new RuntimeException(e);
         }
     }
 
@@ -56,8 +83,11 @@ public class CarManagement {
                     PreparedStatement ps = connection.prepareStatement(sql);
                     ps.setBoolean(1, status);
                     ps.setString(2, car.getVIN());
-                    int i = ps.executeUpdate();
-                }catch (Exception e) {e.printStackTrace();}
+                    ps.executeUpdate();
+                }catch (Exception e) {
+                    log.error("Ошибка при обновлении данных в базе", e);
+                    System.out.println("Ошибка при обновлении данных в базе");
+                }
             }
         });
         updating.setDaemon(true);
@@ -70,9 +100,10 @@ public class CarManagement {
         return s.matches(n) && s.matches(a);
     }
 
-    public String checkVIN(String vin){
-        while (!((vin.length() == 17) && isValidVIN(vin))){
+    public String checkVIN(String vin)  {
+        while (!((vin.length() == 17) && isValidVIN(vin))) {
             System.out.println("Неверный VIN");
+            log.error("Неверный VIN");
             vin = scanner.next();
         }
         return vin;
@@ -82,51 +113,36 @@ public class CarManagement {
         Car car = new Car();
         System.out.println("Введите VIN (цифры и латинские ЗАГЛАВНЫЕ буквы):");
         String vin = checkVIN(scanner.next());
-        System.out.println("Введите бренд:");
-        String brand = scanner.next();
-        System.out.println("Введите модель:");
-        String model = scanner.next();
-        System.out.println("Год выпуска:");
-        int yearOfRelease = checkYearPeriod();
-        System.out.println("Стоимость:");
-        scanner.useLocale(Locale.US);
-        while(!scanner.hasNextBigDecimal()){
-            System.out.println("Введено не число ");
-            scanner.next();
-        }
         if (!vins.contains(vin)) {
+            System.out.println("Введите бренд:");
+            String brand = scanner.next();
+            System.out.println("Введите модель:");
+            String model = scanner.next();
+            System.out.println("Год выпуска:");
+            int yearOfRelease = checkYearPeriod();
+            System.out.println("Стоимость:");
+            scanner.useLocale(Locale.US);
+            while(!scanner.hasNextBigDecimal()){
+                System.out.println("Введено не число ");
+                log.warn("Введено не число ");
+                scanner.next();
+            }
             BigDecimal cost = scanner.nextBigDecimal();
+            car.setVIN(vin);
+            vins.add(vin);
+            car.setBrand(brand);
+            car.setModel(model);
+            car.setYearOfRelease(yearOfRelease);
+            car.setCost(cost);
+            car.setAvailable(true);
+            cars.add(car);
             Thread adding = new Thread(
                     new Runnable() {
                         @Override
-                        public void run() {
-                            try (Connection connection = DriverManager.getConnection(DBConfig.Connection.URL, DBConfig.Connection.USERNAME, DBConfig.Connection.PASSWORD))
-                            { String sql = "INSERT INTO cars (vin, brand, model, yearOfRelease, cost, isavailable) " +
-                                    "VALUES (?,?,?,?,?,?)";
-                                PreparedStatement ps = connection.prepareStatement(sql);
-                                ps.setString(1, vin);
-                                ps.setString(2, brand);
-                                ps.setString(3, model);
-                                ps.setInt(4, yearOfRelease);
-                                ps.setBigDecimal(5, cost);
-                                ps.setBoolean(6, true);
-                                ps.execute();
-                                car.setVIN(vin);
-                                vins.add(vin);
-                                car.setBrand(brand);
-                                car.setModel(model);
-                                car.setYearOfRelease(yearOfRelease);
-                                car.setCost(cost);
-                                car.setAvailable(true);
-                                cars.add(car);
-                                System.out.println("Автомобиль добавлен!");
-
-                            } catch (SQLException e) {
-                                throw new RuntimeException(e);
-                            }
-                        }});
+                        public void run() { carToDB(car); }});
             adding.setDaemon(true);
             adding.start();
+            System.out.println("Автомобиль добавлен!");
         }
         else {
             System.out.println("Такой VIN уже есть");
@@ -136,6 +152,7 @@ public class CarManagement {
     public int checkYearNumber() {
         while ((!scanner.hasNextInt())) {
             System.out.println("Это не цифра");
+            log.warn("Это не цифра");
             scanner.next();
         }
         return scanner.nextInt();
@@ -145,6 +162,7 @@ public class CarManagement {
         int a = checkYearNumber();
         while (!((2000 <= a) && (a <= 2025))) {
             System.out.println("год с 2000-2025");
+            log.warn("год с 2000-2025");
             a = checkYearNumber();
         }
         return a;
@@ -155,22 +173,25 @@ public class CarManagement {
         return cars.stream().filter(x->x.getVIN().equals(vin)).findFirst().orElse(new Car());
     }
 
-    public void findCarByBrandOrModelOrYearOfRelease() {
+    public List<Car> findCarByBrandOrModelOrYearOfRelease() {
         List<Car> result = new ArrayList<>(cars);
         System.out.println("Введите хоть один параметр для поиска бренд/марка/год выпуска.");
         String res = scanner.next();
-        List <Car> result1 = result.stream().filter(x -> String.valueOf(x.getYearOfRelease()).equals(res)).toList();
-        if (result1.isEmpty()){
-            List<Car> result2 = result.stream().filter(x -> x.getBrand().equals(res)).toList();
-            if (result2.isEmpty()){result = result.stream().filter(x -> x.getModel().equals(res)).toList();}else {result = result2;}
-        }else {result = result1;}
+        List <Car> carYear = result.stream().filter(x -> String.valueOf(x.getYearOfRelease()).equals(res)).toList();
+        if (carYear.isEmpty()){
+            List<Car> carBrand = result.stream().filter(x -> x.getBrand().equals(res)).toList();
+            if (carBrand.isEmpty()){result = result.stream().filter(x -> x.getModel().equals(res)).toList();}
+            else {result = carBrand;}
+        }else {result = carYear;}
         if (!result.isEmpty()) {
             for (Car c : result) {
                 printCar(c);
             }
+            return result;
         } else {
             System.out.println("Такого автомобиля нет в базе");
         }
+        return new ArrayList<>();
     }
 
     public List<Car> getCars() {

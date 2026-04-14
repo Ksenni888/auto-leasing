@@ -10,23 +10,15 @@ public class LeasingContract {
     private Integer period;
     private BigDecimal initialPayment;
     private BigDecimal percent;
-
-    public boolean isClosed() {
-        return isClosed;
-    }
-
     private boolean isClosed;
     private BigDecimal amountOfFinancing;
+    private List<Integer> payments;
 
-    public List<Integer> getPayments() {
-        return payments;
-    }
+    public BigDecimal getPercent() { return percent; }
 
     public void setPayments(List<Integer> payments) {
         this.payments = payments;
     }
-
-    private List<Integer> payments;
 
     public BigDecimal getAmountOfFinancing() {
         return amountOfFinancing;
