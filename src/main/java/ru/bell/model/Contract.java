@@ -10,6 +10,7 @@ import jakarta.persistence.Transient;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
@@ -21,10 +22,12 @@ import java.util.List;
 @AllArgsConstructor
 @Table(name = "contracts")
 @Builder
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Contract {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", columnDefinition = "int4")
+    @EqualsAndHashCode.Include
     private Long id;
     @Column(name = "carvin")
     private String carVIN;

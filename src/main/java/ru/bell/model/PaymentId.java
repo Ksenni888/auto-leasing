@@ -3,6 +3,7 @@ package ru.bell.Model;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
@@ -12,10 +13,12 @@ import java.util.Objects;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class PaymentId implements Serializable {
     private static final long serialVersionUID = 1L;
-
+    @EqualsAndHashCode.Include
     private Long contractId;
+    @EqualsAndHashCode.Include
     private Long paymentId;
 
     @Override

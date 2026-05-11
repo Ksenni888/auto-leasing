@@ -7,6 +7,7 @@ import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
@@ -17,8 +18,10 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @Table(name = "cars")
 @Builder
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Car {
     @Id
+    @EqualsAndHashCode.Include
     private String vin;
     private String brand;
     private String model;
